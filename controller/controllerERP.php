@@ -444,7 +444,7 @@
 	        echo "</tbody>
 	        	  </table>";
 		}else{
-			echo "Nenhum produto cadastrado!";
+			echo "Nenhum cupom cadastrado!";
 		}
 	}
 
