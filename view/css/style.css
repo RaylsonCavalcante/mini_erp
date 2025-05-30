@@ -1,0 +1,39 @@
+body {
+  background-color: #f1f3f5;
+  padding-top: 10px;
+}
+.container-cards {
+  margin-top: 4%;
+  padding: 2%;
+}
+.card {
+  border-radius: 12px;
+}
+.card-header {
+  border-radius: 12px 12px 0 0;
+}
+h5 {
+  font-weight: 600;
+}
+.mb-4 {
+  margin-bottom: 1.5rem !important;
+}
+.card-produtos{
+  margin-bottom: 2%;
+}
+
+.card-pedidos{
+  margin-top: 2%;
+}
+
+.card-webhook{
+  margin-top: 2%;
+}
+
+.navbar {
+  box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+}
+
+footer {
+  margin-top: auto;
+}
