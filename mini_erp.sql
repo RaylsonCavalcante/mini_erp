@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Tempo de geração: 30/05/2025 às 04:40
+-- Tempo de geração: 04/06/2025 às 20:22
 -- Versão do servidor: 10.4.32-MariaDB
 -- Versão do PHP: 8.2.12
 
@@ -44,7 +44,7 @@ CREATE TABLE `cupons` (
 
 CREATE TABLE `estoque` (
   `id` int(11) NOT NULL,
-  `produto_id` int(11) NOT NULL,
+  `variacao_id` int(11) NOT NULL,
   `quantidade` int(11) NOT NULL DEFAULT 0,
   `atualizado_em` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
@@ -64,7 +64,7 @@ CREATE TABLE `pedidos` (
   `valor_total` decimal(10,2) NOT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
-  `produtos` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`produtos`))
+  `produtos` text DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
@@ -77,9 +77,20 @@ CREATE TABLE `produtos` (
   `id` int(11) NOT NULL,
   `nome` varchar(255) NOT NULL,
   `preco` decimal(10,2) NOT NULL,
-  `variacoes` varchar(255) DEFAULT NULL,
   `criado_em` timestamp NOT NULL DEFAULT current_timestamp(),
   `atualizado_em` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Estrutura para tabela `variacoes`
+--
+
+CREATE TABLE `variacoes` (
+  `id` int(11) NOT NULL,
+  `produto_id` int(11) DEFAULT NULL,
+  `descricao` varchar(255) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
@@ -98,7 +109,7 @@ ALTER TABLE `cupons`
 --
 ALTER TABLE `estoque`
   ADD PRIMARY KEY (`id`),
-  ADD KEY `produto_id` (`produto_id`);
+  ADD KEY `estoque_variacao_id_foreign` (`variacao_id`);
 
 --
 -- Índices de tabela `pedidos`
@@ -111,6 +122,13 @@ ALTER TABLE `pedidos`
 --
 ALTER TABLE `produtos`
   ADD PRIMARY KEY (`id`);
+
+--
+-- Índices de tabela `variacoes`
+--
+ALTER TABLE `variacoes`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `produto_id` (`produto_id`);
 
 --
 -- AUTO_INCREMENT para tabelas despejadas
@@ -141,6 +159,12 @@ ALTER TABLE `produtos`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
+-- AUTO_INCREMENT de tabela `variacoes`
+--
+ALTER TABLE `variacoes`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
 -- Restrições para tabelas despejadas
 --
 
@@ -148,7 +172,13 @@ ALTER TABLE `produtos`
 -- Restrições para tabelas `estoque`
 --
 ALTER TABLE `estoque`
-  ADD CONSTRAINT `estoque_ibfk_1` FOREIGN KEY (`produto_id`) REFERENCES `produtos` (`id`) ON DELETE CASCADE;
+  ADD CONSTRAINT `estoque_variacao_id_foreign` FOREIGN KEY (`variacao_id`) REFERENCES `variacoes` (`id`);
+
+--
+-- Restrições para tabelas `variacoes`
+--
+ALTER TABLE `variacoes`
+  ADD CONSTRAINT `variacoes_ibfk_1` FOREIGN KEY (`produto_id`) REFERENCES `produtos` (`id`);
 COMMIT;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
