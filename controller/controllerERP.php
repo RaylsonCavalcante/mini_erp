@@ -4,6 +4,7 @@
 	require_once ("../model/connect.php");
 	require_once ("../model/Produto.php");
 	require_once ("../model/Estoque.php");
+	require_once ("../model/Variacao.php");
 	require_once ("../model/Cupom.php");
 	require_once ("../model/Pedido.php");
 	
@@ -11,6 +12,7 @@
 
 	$produto = new Produto();
 	$estoque = new Estoque();
+	$variacao = new Variacao();
 	$cupom = new Cupom();
 	$pedido = new Pedido();
 
@@ -20,24 +22,27 @@
 	if ($ctrl == 'cadastroProduto') {
 		$produto->nome = $_POST['nome'];
 		$produto->preco = $_POST['preco'];
-		$produto->variacoes = $_POST['variacoes'];
 
 	    if ($produto->create($connect)) {
+	    	unset($_SESSION['carrinho']);
 
-	        // Pega o último id inserido
-	        $produto_id = mysqli_insert_id($connect);
+	    	//Pega o ultimo id inserido do produto
+	    	$variacao->produto_id = mysqli_insert_id($connect);
+	        $variacoes = $_POST['variacoes'];
 
-	        // Atribui o id do produto ao estoque e a quantidade
-	        $estoque->produto_id = $produto_id;
-	        $estoque->quantidade = $_POST['estoque'];
+	        foreach ($variacoes as $i => $nome_variacao) {
+	            // Inserir variação
+	            $variacao->descricao = $nome_variacao['descricao'];
+	            $variacao->create($connect);
 
-	        if ($estoque->create($connect)) {
-	            // Sucesso: Retorna JSON de confirmação
-	            echo json_encode(['success' => true, 'message' => 'Produto e estoque cadastrados com sucesso!']);
-	        } else {
-	            // Erro ao inserir estoque
-	            echo json_encode(['success' => false, 'message' => 'Erro ao cadastrar estoque.']);
+	            // Inserir estoque
+		        $estoque->variacao_id = mysqli_insert_id($connect);
+		        $estoque->quantidade = $nome_variacao['estoque'];
+		        $estoque->create($connect);
 	        }
+
+            // Sucesso: Retorna JSON de confirmação
+            echo json_encode(['success' => true, 'message' => 'Produto cadastrado com sucesso!']);
 	    } else {
 	        // Erro ao inserir produto
 	        echo json_encode(['success' => false, 'message' => 'Erro ao cadastrar produto.']);
@@ -49,15 +54,43 @@
 	if ($ctrl == 'listarProdutos') {
 		
 		$sql = mysqli_query($connect,"
-			SELECT p.*, e.quantidade AS estoque
-			FROM produtos p 
-			LEFT JOIN estoque e ON p.id = e.produto_id");
+			SELECT 
+			    p.*,
+			    v.id AS variacao_id,
+			    v.descricao AS variacao_descricao,
+			    e.quantidade AS estoque
+			FROM produtos p
+			LEFT JOIN variacoes v ON v.produto_id = p.id
+			LEFT JOIN estoque e ON e.variacao_id = v.id
+			ORDER BY p.id, v.id;
+		");
+
 		$num = mysqli_num_rows($sql);
 
 		if ($num > 0) {
-			$cont = 1;
-			echo "<table class='table table-bordered table-hover'>
-					<thead class='table-light'>
+		    $produtos = [];
+
+		    while ($row = mysqli_fetch_assoc($sql)) {
+		        $id = $row['id'];
+
+		        if (!isset($produtos[$id])) {
+		            $produtos[$id] = [
+		                'nome' => $row['nome'],
+		                'preco' => $row['preco'],
+		                'variacoes' => []
+		            ];
+		        }
+
+		        if ($row['variacao_id']) {
+		            $produtos[$id]['variacoes'][] = [
+		                'descricao' => $row['variacao_descricao'],
+		                'estoque' => $row['estoque']
+		            ];
+		        }
+		    }
+
+		    echo "<table class='table table-bordered table-hover'>
+		            <thead class='table-light'>
 		                <tr>
 		                  <th>Nº</th>
 		                  <th>Nome</th>
@@ -66,68 +99,145 @@
 		                  <th>Estoque</th>
 		                  <th>Ações</th>
 		                </tr>
-		              </thead>";
+		            </thead>
+		            <tbody>";
 
-		            while ($produto = mysqli_fetch_object($sql)) {
-		              echo "<tbody>
-			                <tr>
-			                  <td>".$cont."</td>
-			                  <td>".$produto->nome."</td>
-			                  <td>R$ ". number_format($produto->preco, 2, ',', '.') ."</td>
-			                  <td>".$produto->variacoes."</td>
-			                  <td>".$produto->estoque."</td>
-			                  <td>
-			                    <button class='btn btn-sm btn-warning me-1' onclick='editarProduto(".$produto->id.")'>Editar</button>
-			                    <button class='btn btn-sm btn-danger me-1' onclick='alertExclusao(".$produto->id.")'>Excluir</button>
-			                    <button class='btn btn-sm btn-success' onclick='adicionarProdutoCarrinho(".$produto->id.")'>Comprar</button>
-			                  </td>
-			                </tr>
-			              </tbody>";
-			          $cont++;
-	          		}
-	        echo "</table>";
-		}else{
-			echo "Nenhum produto cadastrado!";
+		    $cont = 1;
+		    foreach ($produtos as $id => $produto) {
+		        // Montar lista das variações e estoques concatenados
+		        $variacoesHtml = '';
+		        foreach ($produto['variacoes'] as $var) {
+		            $variacoesHtml .= htmlspecialchars($var['descricao']) . "<br>";
+		        }
+		        $estoqueHtml = '';
+		        foreach ($produto['variacoes'] as $var) {
+		            $estoqueHtml .= intval($var['estoque']) . "<br>";
+		        }
+
+		        echo "<tr>
+		                <td>$cont</td>
+		                <td>".htmlspecialchars($produto['nome'])."</td>
+		                <td>R$ ".number_format($produto['preco'], 2, ',', '.')."</td>
+		                <td>$variacoesHtml</td>
+		                <td>$estoqueHtml</td>
+		                <td>
+		                    <button class='btn btn-sm btn-warning me-1' onclick='editarProduto($id)'>Editar</button>
+		                    <button class='btn btn-sm btn-danger me-1' onclick='alertExclusao($id)'>Excluir</button>
+		                    <button class='btn btn-sm btn-success' id='btnComprar".$id."' onclick='adicionarProdutoCarrinho($id)'>Comprar</button>
+		                </td>
+		              </tr>";
+
+		        $cont++;
+		    }
+
+		    echo "</tbody></table>";
+
+		} else {
+		    echo "Nenhum produto cadastrado!";
 		}
+
 	}
 
 	//DADOS DO PRODUTO PARA EDIÇÃO
 	if ($ctrl == "dadosProduto") {
-		$id = intval($_POST['id']);
+	    $id = intval($_POST['id']);
 
-		$sql = mysqli_query($connect,"
-			SELECT p.*, e.quantidade AS estoque
-			FROM produtos p 
-			LEFT JOIN estoque e ON p.id = e.produto_id WHERE p.id = '$id'");
-		$num = mysqli_num_rows($sql);
+	    // Busca produto
+	    $sqlProduto = mysqli_query($connect, "SELECT id, nome, preco FROM produtos WHERE id = $id LIMIT 1");
+	    if (mysqli_num_rows($sqlProduto) > 0) {
+	        $produto = mysqli_fetch_assoc($sqlProduto);
 
-		if ($num > 0) {
-			$produto = mysqli_fetch_assoc($sql);
-			echo json_encode($produto);
-		}
+	        // Busca variações do produto com seus respectivos estoques
+	        $sqlVariacoes = mysqli_query($connect, "
+	            SELECT v.id, v.descricao, IFNULL(e.quantidade, 0) AS quantidade
+	            FROM variacoes v
+	            LEFT JOIN estoque e ON e.variacao_id = v.id
+	            WHERE v.produto_id = $id
+	        ");
+
+	        $variacoes = [];
+	        while ($v = mysqli_fetch_assoc($sqlVariacoes)) {
+	            $variacoes[] = $v;
+	        }
+
+	        // Monta e envia JSON
+	        $response = [
+	            'id' => $produto['id'],
+	            'nome' => $produto['nome'],
+	            'preco' => $produto['preco'],
+	            'variacoes' => $variacoes
+	        ];
+
+	        echo json_encode($response);
+	    }
 	}
 
 	//ATUALIZA PRODUTO
 	if ($ctrl == "atualizaProduto") {
-		
-		$idProduto = intval($_POST['id']);
-		$produto->nome = $_POST['nome'];
-		$produto->preco = $_POST['preco'];
-		$produto->variacoes = $_POST['variacoes'];
+	    $idProduto = intval($_POST['id']);
+	    $produto->nome = $_POST['nome'];
+	    $produto->preco = $_POST['preco'];
 
-	    if ($produto->update($connect,$idProduto)) {
+	    // Atualiza produto
+	    if ($produto->update($connect, $idProduto)) {
 
-	        $estoque->quantidade = $_POST['estoque'];
+	    	// 1. Busca todos os IDs de variações do banco para o produto
+			$idsBanco = [];
+			$variacoesExistentes = mysqli_query($connect, "SELECT id FROM variacoes WHERE produto_id = $idProduto");
+			while ($row = mysqli_fetch_assoc($variacoesExistentes)) {
+			    $idsBanco[] = $row['id'];
+			}
 
-	        if ($estoque->update($connect,$idProduto)) {
-	            // Sucesso: Retorna JSON de confirmação
-	            echo json_encode(['success' => true, 'message' => 'Produto e estoque atualizado com sucesso!']);
-	        } else {
-	            // Erro ao inserir estoque
-	            echo json_encode(['success' => false, 'message' => 'Erro ao atualizar estoque.']);
+			// 2. Extrair os IDs que vieram do POST
+			$idsPost = array_filter(array_map(function ($v) {
+			    return intval($v['id']);
+			}, $_POST['variacoes']));
+
+			// 3. Identificar quais variações devem ser deletadas
+			$idsParaDeletar = array_diff($idsBanco, $idsPost);
+
+			foreach ($idsParaDeletar as $idDel) {
+			    // Deleta o estoque vinculado
+			    mysqli_query($connect, "DELETE FROM estoque WHERE variacao_id = $idDel");
+			    // Deleta a variação
+			    mysqli_query($connect, "DELETE FROM variacoes WHERE id = $idDel");
+			}
+	        
+	        // Atualiza variações
+	        foreach ($_POST['variacoes'] as $v) {
+	            $idVariacao = intval($v['id']);
+
+	            // Atualiza descrição da variação
+	            $variacao->descricao = $v['descricao'];
+	            $variacao->update($connect,$idVariacao);
+
+	            // Atualiza estoque da variação
+	            $sql = mysqli_query($connect, "SELECT id FROM estoque WHERE variacao_id = $idVariacao");
+	            $num = mysqli_num_rows($sql);
+
+	            if ($num > 0) {
+	            	//ATUALIZA SOMENTE
+	            	$estoque->variacao_id = $idVariacao;
+	            	$estoque->quantidade = $v['estoque'];
+	            	$estoque->update($connect);
+	            }else{
+	            	//INSERE NOVA VARIAÇÃO E ESTOQUE
+	            	$variacoes = $_POST['variacoes'];
+	            	$variacao->produto_id = $idProduto;
+		            
+		            // Inserir variação
+		            $variacao->descricao = $v['descricao'];
+		            $variacao->create($connect);
+
+		            // Inserir estoque
+			        $estoque->variacao_id = mysqli_insert_id($connect);
+			        $estoque->quantidade = $v['estoque'];
+			        $estoque->create($connect);
+	            }
 	        }
+
+	        echo json_encode(['success' => true, 'message' => 'Atualização com sucesso!']);
 	    } else {
-	        // Erro ao inserir produto
 	        echo json_encode(['success' => false, 'message' => 'Erro ao atualizar produto.']);
 	    }
 	}
@@ -169,23 +279,55 @@
 
 	        $total = 0;
 
-	        foreach ($_SESSION['carrinho'] as $item) {
-	           
-	            echo "<tr>
-			            <td>" . $item['nome'] . "</td>
-			            <td>".$item['variacoes']."</td>
-			            <td>
-			              <div class='d-flex align-items-center'>
-			                <button class='btn btn-sm btn-secondary me-1' onclick='btnRemove(".$item['id'].")'>–</button>
-			                <input type='number' min='1' max='". $item['estoque']."' value='".$item['quantidade']."' style='width: 50px; text-align: center; margin-left:1px;' disabled id='qtd".$item['id']."'>
-			                <button class='btn btn-sm btn-secondary ms-1' onclick='btnAdd(".$item['id'].")'>+</button>
-			              </div>
-			            </td>
-			            <td>R$ " . number_format($item['preco'] * $item['quantidade'], 2, ',', '.') . "</td>
-			            <td><button class='btn btn-sm btn-danger' onclick='removerProdutoCarrinho(".$item['id'].")'><i class='bi bi-trash'></i></button></td>
-			          </tr>";
+			foreach ($_SESSION['carrinho'] as $item) {
+			    $idProduto = $item['id'];
+			    $variacaoSelecionada = $item['variacao_selecionada'];
 
-			    $subtotal = $item['preco'] * $item['quantidade'];
+			    echo "<tr>
+			            <td>{$item['nome']}</td>
+			            <td>
+			              <select class='form-select form-select-sm' onchange='atualizaVariacao({$idProduto})' id='variacao{$idProduto}'>";
+			    
+			    foreach ($item['variacoes'] as $v) {
+			        $selected = ($v['variacao_id'] == $variacaoSelecionada) ? 'selected' : '';
+			        echo "<option value='{$v['variacao_id']}' data-estoque='{$v['estoque']}' $selected>
+			                {$v['descricao']} (Estoque: {$v['estoque']})
+			              </option>";
+			        
+			        // Guarda info da variação ativa
+			        if ($v['variacao_id'] == $variacaoSelecionada) {
+			            $estoque = $v['estoque'];
+			            $quantidade = $v['quantidade'];
+			        }
+			    }
+
+			    echo "</select>
+			          </td>
+			          <td>
+			            <div class='d-flex align-items-center'>
+			              <button class='btn btn-sm btn-secondary me-1' onclick='btnRemove({$idProduto})'>–</button>
+			              <input type='number' min='1' max='{$estoque}' 
+			                     value='{$quantidade}' 
+			                     style='width: 50px; text-align: center;' 
+			                     disabled 
+			                     id='qtd{$idProduto}'>
+			              <button class='btn btn-sm btn-secondary ms-1' onclick='btnAdd({$idProduto})'>+</button>
+			            </div>
+			            <input type='hidden' id='preco{$idProduto}' value='{$item['preco']}'>
+			          </td>
+			          <td id='subtotal{$idProduto}'>
+			            R$ " . number_format($item['preco'] * $quantidade, 2, ',', '.') . "
+			          </td>
+			          <td>
+			            <button class='btn btn-sm btn-danger' onclick='removerProdutoCarrinho({$idProduto})'>
+			              <i class='bi bi-trash'></i>
+			            </button>
+			          </td>
+			        </tr>";
+			
+
+
+			    $subtotal = $item['preco'] * $quantidade;
 			    //Adiciona valores a sessao
 				$_SESSION['subTotal'][$item['id']] = ['sub_total' => $subtotal];
 
@@ -279,44 +421,78 @@
 		}
 	}
 
-	//ADICIONA PRODUTO AO CARRINHO
+	//ATUALIZAR VARIAÇÃO SELECIONADA NA SESSION
+	if ($ctrl == "atualizaVariacaoSelecionada") {
+	    $idProduto = intval($_POST['id']);
+	    $variacaoId = intval($_POST['variacao_id']);
+
+	    if (isset($_SESSION['carrinho'][$idProduto])) {
+	        $_SESSION['carrinho'][$idProduto]['variacao_selecionada'] = $variacaoId;
+	        echo json_encode(['success' => true]);
+	    } 
+	}
+
+	// //ADICIONA PRODUTO AO CARRINHO
 	if ($ctrl == "adicionarProdutoCarrinho") {
 
-	    $idProduto = intval($_POST['id']); 
+	    $idProduto = intval($_POST['id']);
 
-	    $sql = mysqli_query($connect,"
-			SELECT p.*, e.quantidade AS estoque
-			FROM produtos p 
-			LEFT JOIN estoque e ON p.id = e.produto_id WHERE p.id = '$idProduto'");
-		$num = mysqli_num_rows($sql);
+	    // Busca produto e suas variações com estoque
+	    $sql = mysqli_query($connect, "
+	        SELECT 
+	            p.id AS produto_id,
+	            p.nome,
+	            p.preco,
+	            v.id AS variacao_id,
+	            v.descricao AS variacao_descricao,
+	            e.quantidade AS estoque
+	        FROM produtos p
+	        LEFT JOIN variacoes v ON v.produto_id = p.id
+	        LEFT JOIN estoque e ON e.variacao_id = v.id
+	        WHERE p.id = '$idProduto'
+	    ");
+	    $num = mysqli_num_rows($sql);
 
-		if ($num > 0) {		
-
-	        $produto = mysqli_fetch_object($sql);
-
+	    if ($num > 0) {
+	     
 	        if (!isset($_SESSION['carrinho'])) {
-	            $_SESSION['carrinho'] = [];
-	        }
+			    $_SESSION['carrinho'] = [];
+			}
 
-	        if($_SESSION['carrinho'][$idProduto]){
+			$variacoes = [];
+			$produtoNome = '';
+			$produtoPreco = 0;
+			$variacaoSelecionada = null;
 
-	        	//CLICANDO COMPRAR NOVAMENTE NO MESMO PRODUTO, ELE ADICIONA MAIS 1 QUANTIDADE
-	        	if($_SESSION['carrinho'][$idProduto]['quantidade'] < $_SESSION['carrinho'][$idProduto]['estoque']
-	        		|| $_SESSION['carrinho'][$idProduto]['quantidade'] == 1){
-	        		$_SESSION['carrinho'][$idProduto]['quantidade'] += 1;
-	        	}
-	        }else{
-	            $_SESSION['carrinho'][$idProduto] = [
-	                'id' => $produto->id,
-	                'nome' => $produto->nome,
-	                'preco' => $produto->preco,
-	                'variacoes' => $produto->variacoes,
-	                'estoque' => $produto->estoque,
-	                'quantidade' => 1
-	            ];
-        	}
+			while ($row = mysqli_fetch_object($sql)) {
+			    $produtoNome = $row->nome;
+			    $produtoPreco = $row->preco;
+
+			    $variacoes[] = [
+			        'variacao_id' => $row->variacao_id,
+			        'descricao' => $row->variacao_descricao,
+			        'estoque' => $row->estoque,
+			        'quantidade' => 1
+			    ];
+
+			    // Define a primeira variação como selecionada por padrão
+			    if ($variacaoSelecionada === null) {
+			        $variacaoSelecionada = $row->variacao_id;
+			    }
+			}
+
+			// Adiciona o produto com todas suas variações no carrinho
+			$_SESSION['carrinho'][$idProduto] = [
+			    'id' => $idProduto,
+			    'nome' => $produtoNome,
+			    'preco' => $produtoPreco,
+			    'variacoes' => $variacoes,
+			    'variacao_selecionada' => $variacaoSelecionada // Salva a variação selecionada
+			];
+
 	    }
 	}
+
 
 	//REMOVE PRODUTO DO CARRINHO
 	if ($ctrl == "exclueProdutoCarrinho") {
@@ -341,15 +517,23 @@
 
 	    if (isset($_SESSION['carrinho'][$idProduto])) {
 
-	    	if ($function === "add") {
-	       		$_SESSION['carrinho'][$idProduto]['quantidade'] = $_SESSION['carrinho'][$idProduto]['quantidade']+1;
+	    	$produto =& $_SESSION['carrinho'][$idProduto];
 
-		        echo json_encode(['success' => true]);
-	    	}else{
-	    		$_SESSION['carrinho'][$idProduto]['quantidade'] = $_SESSION['carrinho'][$idProduto]['quantidade']-1;
-		        
-		        echo json_encode(['success' => true]);
-	    	}
+	    	$variacaoIdSelecionada = $produto['variacao_selecionada'];
+
+	    	foreach ($produto['variacoes'] as &$variacao) {
+		        if ($variacao['variacao_id'] == $variacaoIdSelecionada) {
+
+		            if ($function === "add") {
+		                $variacao['quantidade']++;
+		            }else{
+		                $variacao['quantidade']--;
+		            }
+
+		            echo json_encode(['success' => true]);
+		        }
+		    }
+
 	    } else {
 	        echo json_encode(['success' => false, 'message' => 'Erro ao escolher quantidade.']);
 	    }
@@ -576,22 +760,43 @@
 		$num = mysqli_num_rows($sql);
 
 		if ($num > 0) {
-			//Ja existe um cupom com esse codigo
 	        echo json_encode(['success' => false, 'message' => 'Existe um pedido com esse (cep) pendente.']);
 		}else{
 
-			$produtosParaSalvar = [];
+			$produtosFormatados = [];
 
 			foreach ($_SESSION['carrinho'] as $idProduto => $produtoS) {
-			    $produtosParaSalvar[$idProduto] = [
-			        'nome' => $produtoS['nome'],
-			        'variacoes' => $produtoS['variacoes'],
-			        'quantidade' => (int) $produtoS['quantidade'],
-			    ];
+			    $nome = $produtoS['nome'];
+			    $variacao_selecionada = $produtoS['variacao_selecionada'];
+
+			    foreach($produtoS['variacoes'] as $variacaoS ){
+			    	if($variacaoS['variacao_id'] == $variacao_selecionada){
+					    $descricao = $variacaoS['descricao'];
+					    $quantidade = $variacaoS['quantidade'];
+					}
+				}
+
+			    $linha = "{$nome} - {$descricao} - ({$quantidade}x)";
+			    $produtosFormatados[] = $linha;
 			}
 
-			$produtosJson = json_encode($produtosParaSalvar, JSON_UNESCAPED_UNICODE);
-			$pedido->produtos = $produtosJson;
+			$pedido->produtos = implode("\n", $produtosFormatados); // quebra de linha entre os produtos
+
+			$produtosParaEstoque = [];
+
+			foreach ($_SESSION['carrinho'] as $idProduto => $produtoS) {
+			    $variacao_selecionada = $produtoS['variacao_selecionada'];
+
+			    foreach($produtoS['variacoes'] as $variacaoS ){
+			    	if($variacaoS['variacao_id'] == $variacao_selecionada){
+					    $produtosParaEstoque[] = [
+					        'produto_id' => $idProduto,
+					        'variacao_id' => $variacao_selecionada,
+					        'quantidade' => $variacaoS['quantidade']
+					    ];
+					}
+				}
+			}
 
 			$pedido->status = 'PENDENTE';
 			if ($pedido->create($connect)) {
@@ -603,6 +808,7 @@
 	            	$pedido->cep,
 	            	$pedido->endereco,
 	            	$pedido->data_pedido,
+	            	implode("\n", $produtosFormatados),
 	            	$pedido->valor_total,
 	            	$_POST['email']
 	            );
@@ -615,25 +821,46 @@
 
 
 				//ESSA PARTE MUDA A QUANTIDADE NO ESTOQUE DO PRODUTO NO BANCO
-				$produtos = json_decode($produtosJson, true);
+				foreach ($produtosParaEstoque as $produtoS) {
+				    $produtoId = (int) $produtoS['produto_id'];
+				    $variacaoId = (int) $produtoS['variacao_id'];
+				    $quantidadeComprada = (int) $produtoS['quantidade'];
 
-				foreach ($produtos as $idProduto => $quantidadeComprada) {
+				    // Busca o estoque da variação
+				    $sql = mysqli_query($connect, "SELECT id, quantidade FROM estoque WHERE variacao_id = $variacaoId");
+				    $estoqueS = mysqli_fetch_object($sql);
 
-				    $sql = mysqli_query($connect, "SELECT id,quantidade FROM estoque WHERE produto_id = $idProduto");
-				    $estoqueQuantidade = mysqli_fetch_object($sql);
+				    if ($estoqueS) {
+				        $novoEstoque = $estoqueS->quantidade - $quantidadeComprada;
 
-				    $novoEstoque = $estoqueQuantidade->quantidade - $quantidadeComprada['quantidade'];
+				        if ($novoEstoque <= 0) {
+				            // Remove o estoque
+				            $estoqueId = (int) $estoqueS->id;
+				            $estoque->delete($connect,$estoqueId);
 
-				    if ($novoEstoque <= 0) {
-				    	//APAGA PRODUTO SE CASO O ESTOQUE FOR MENOR QUE 0
-				    	$id = intval($idProduto);
-				        $produto->delete($connect, $id);
-				    }else{
-				    	//ATUALIZA ESTOQUE
-				    	$id = intval($idProduto);
-				    	$estoque->quantidade = $novoEstoque;
-				    	$estoque->update($connect,$id);
+				            // Remove a variação
+				            $variacao->delete($connect,$variacaoId);
 
+				            // Verifica se ainda existem outras variações com estoque para esse produto
+				            $sql = mysqli_query($connect, "
+				                SELECT COUNT(*) as total 
+				                FROM estoque 
+				                INNER JOIN variacoes ON estoque.variacao_id = variacoes.id 
+				                WHERE variacoes.produto_id = $produtoId
+				            ");
+				            $resultado = mysqli_fetch_object($sql);
+
+				            if ($resultado->total == 0) {
+				                // Se não houver nenhuma variação com estoque, deleta o produto
+				                $produto->deleteProduto($connect,$produtoId);
+				            }
+
+				        } else {
+				            // Atualiza a quantidade da variação
+				            $estoqueId = (int) $estoqueS->id;
+				            $estoque->quantidade = $novoEstoque;
+				            $estoque->updateQuantidade($connect,$estoqueId);
+				        }
 				    }
 				}
 

@@ -56,78 +56,98 @@
       <div class="col">
       	<!-- CADASTRO -->
         <div class="card shadow-sm" id="divCadastrar">
-          <div class="card-header bg-primary text-white">
-            <h5 class="mb-0"><i class="bi bi-plus-square"></i> Cadastro de Produto</h5>
-          </div>
-          <div class="card-body">
-            <form id="formCadastro">
-              <div class="row mb-3">
-                <div class="col-md-6">
-                  <label for="nome" class="form-label">Nome</label>
-                  <input type="text" class="form-control" id="nome" name="nome" required />
-                </div>
-                <div class="col-md-3">
-                  <label for="preco" class="form-label">Preço</label>
-                  <input type="number" step="0.01" class="form-control" id="preco" name="preco" required />
-                </div>
-                <div class="col-md-3">
-                  <label for="estoque" class="form-label">Estoque</label>
-                  <input type="number" class="form-control" id="estoque" name="estoque" required />
-                </div>
-              </div>
-              <div class="mb-3">
-                <label for="variacoes" class="form-label">Variações</label>
-                <input type="text" class="form-control" id="variacoes" name="variacoes" required/>
-              </div>
-              <div class="d-flex justify-content-between">
-                <button type="submit" class="btn btn-primary" id="btnCadastrar">
-                	<span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true" id="spinnerCadastrar"></span>
-                	Cadastrar
-            	</button>
-              </div>
-            </form>
-          </div>
-        </div>
+				  <div class="card-header bg-primary text-white">
+				    <h5 class="mb-0"><i class="bi bi-plus-square"></i> Cadastro de Produto</h5>
+				  </div>
+				  <div class="card-body">
+				    <form id="formCadastro">
+				      <div class="row mb-3">
+				        <div class="col-md-7">
+				          <label for="nome" class="form-label">Nome</label>
+				          <input type="text" class="form-control" id="nome" name="nome" required />
+				        </div>
+				        <div class="col-md-5">
+				          <label for="preco" class="form-label">Preço</label>
+				          <input type="number" step="0.01" class="form-control" id="preco" name="preco" required />
+				        </div>
+				      </div>
+
+				      <hr>
+				      <h6>Variações</h6>
+				      <div id="variacoesContainer">
+				      	<!-- Primeiro grupo fixo (sem botão de remover) -->
+								<div class="row mb-2">
+								  <div class="col-md-7">
+								    <input type="text" name="variacoes[0][descricao]" class="form-control" placeholder="Ex: Camisa P Preta" required>
+								  </div>
+								  <div class="col-md-5">
+								    <input type="number" min="1" name="variacoes[0][estoque]" class="form-control" placeholder="Estoque" required>
+								  </div>
+								</div>
+
+								<!-- Grupos adicionais serão adicionados aqui -->
+								<div id="outrasVariacoes"></div>
+				      </div>
+
+				      <div class="mb-3">
+				        <button type="button" class="btn btn-secondary btn-sm" id="btnAddVariacao">
+				          <i class="bi bi-plus-circle"></i> Adicionar Variação
+				        </button>
+				      </div>
+
+				      <div class="d-flex justify-content-between">
+				        <button type="submit" class="btn btn-primary" id="btnCadastrar">
+				          <span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true" id="spinnerCadastrar"></span>
+				          Cadastrar
+				        </button>
+				      </div>
+				    </form>
+				  </div>
+				</div>
+
 
         <!-- EDIÇÃO -->
         <div class="card shadow-sm" style="display: none;" id="divEditar">
-          <div class="card-header bg-primary text-white">
-            <h5 class="mb-0"><i class="bi bi-pencil-square"></i> Edição de Produto</h5>
-          </div>
-          <div class="card-body">
-            <form id="formEdicao">
-              <div class="row mb-3">
-              	<input type="hidden" name="idProduto" id="idProduto">
-                <div class="col-md-6">
-                  <label for="nome" class="form-label">Nome</label>
-                  <input type="text" class="form-control" id="nomeEditar" name="nome" required />
-                </div>
-                <div class="col-md-3">
-                  <label for="preco" class="form-label">Preço</label>
-                  <input type="number" step="0.01" class="form-control" id="precoEditar" name="preco" required />
-                </div>
-                <div class="col-md-3">
-                  <label for="estoque" class="form-label">Estoque</label>
-                  <input type="number" class="form-control" id="estoqueEditar" name="estoque" required />
-                </div>
-              </div>
-              <div class="mb-3">
-                <label for="variacoes" class="form-label">Variações</label>
-                <input type="text" class="form-control" id="variacoesEditar" name="variacoes" required/>
-              </div>
-              <div class="d-flex justify-content-between">
-                <button type="button" class="btn btn-warning" id="btnAtualizar">
-                	<span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true" id="spinnerEditar"></span>
-                	Atualizar
-                </button>
-                <button type="button" class="btn btn-primary" onclick="voltar()">
-	            	<i class="bi bi-arrow-left"></i>
-	            Voltar
-	        	</button>
-              </div>
-            </form>
-          </div>
-        </div>
+				  <div class="card-header bg-primary text-white">
+				    <h5 class="mb-0"><i class="bi bi-pencil-square"></i> Edição de Produto</h5>
+				  </div>
+				  <div class="card-body">
+				    <form id="formEdicao">
+				      <input type="hidden" name="idProduto" id="idProduto">
+
+				      <div class="row mb-3">
+				        <div class="col-md-7">
+				          <label for="nomeEditar" class="form-label">Nome</label>
+				          <input type="text" class="form-control" id="nomeEditar" name="nome" required />
+				        </div>
+				        <div class="col-md-5">
+				          <label for="precoEditar" class="form-label">Preço</label>
+				          <input type="number" step="0.01" class="form-control" id="precoEditar" name="preco" required />
+				        </div>
+				      </div>
+
+				      <div class="mb-3">
+				        <h6>Variações e Estoque</h6>
+				        <div id="containerVariacoesEditar"></div>
+
+				        <button type="button" id="btnAddVariacaoEditar" class="btn btn-secondary btn-sm mt-2">
+				          <i class="bi bi-plus-circle"></i> Adicionar Variação
+				        </button>
+				      </div>
+
+				      <div class="d-flex justify-content-between">
+				        <button type="submit" class="btn btn-warning" id="btnAtualizar">
+				          <span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true" id="spinnerEditar"></span>
+				          Atualizar
+				        </button>
+				        <button type="button" class="btn btn-primary" onclick="voltar()">
+				          <i class="bi bi-arrow-left"></i> Voltar
+				        </button>
+				      </div>
+				    </form>
+				  </div>
+				</div>
+
       </div>
 
     </div>

@@ -5,7 +5,7 @@
 	require '../vendor/autoload.php';
 
 	//ENVIA EMAIL
-	function envioEmail($cep,$endereco,$dataPedido,$valorTotal,$email){
+	function envioEmail($cep,$endereco,$dataPedido,$variacoes,$valorTotal,$email){
 
 		$mail = new PHPMailer(true);
 
@@ -15,7 +15,7 @@
 		    $mail->Host       = 'smtp.gmail.com'; 
 		    $mail->SMTPAuth   = true;
 		    $mail->Username   = 'example@gmail.com'; //ADICIONA SEU EMAIL REAL
-		    $mail->Password   = 'XXXX XXXX XXXX XXXX'; //ADICIONE A SENHA DE APP
+		    $mail->Password   = 'xxxx xxxx xxxx xxxx'; //ADICIONE A SENHA DE APP
 		    $mail->SMTPSecure = 'tls';
 		    $mail->Port       = 587;
 
@@ -34,6 +34,7 @@
 			        <li><strong>Data do Pedido:</strong> ' . $dataPedido . '</li>
 			        <li><strong>Endereço:</strong> ' . $endereco . '</li>
 			        <li><strong>CEP:</strong> ' . $cep . '</li>
+			        <li><strong>Produtos:</strong> ' . $variacoes . '</li>
 			        <li><strong>Valor Total:</strong> R$ ' . number_format($valorTotal, 2, ',', '.') . '</li>
 			    </ul>
 			    <p>Em breve seu pedido será enviado para o endereço informado.</p>
