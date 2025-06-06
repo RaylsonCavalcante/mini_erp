@@ -1,4 +1,4 @@
-# Mini ERP de Pedidos
+# Mini ERP
 
 Este projeto é um mini ERP para gestão de pedidos com envio de e-mails via PHPMailer.
 
