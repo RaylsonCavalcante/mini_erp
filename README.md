@@ -13,6 +13,7 @@ Este projeto é um mini ERP para gestão de pedidos com envio de e-mails via PHP
 ## Ferramentas usadas
 - PHP
 - MYSQL
+- PHPMailer (Envio de email)
 - JAVASCRIPT
 - JQUERY
 - REQUISIÇÕES (AJAX)
